@@ -5,6 +5,13 @@ terraform {
       version = "5.41.0"
     }
   }
+
+  backend "s3" {
+    bucket  = "course-project-terraform-states"
+    encrypt = true
+    key     = "terraform/microservice-course-project/terraform.tfstate"
+    region  = "us-east-2"
+  }
 }
 
 provider "aws" {
