@@ -9,7 +9,7 @@ terraform {
   backend "s3" {
     bucket  = "course-project-terraform-states"
     encrypt = true
-    key     = "terraform/microservice-course-project/terraform.tfstate"
+    key     = "terraform/eks/terraform.tfstate"
     region  = "us-east-2"
   }
 }

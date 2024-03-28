@@ -2,6 +2,11 @@ name: Destroy Course Project
 
 on:
   workflow_dispatch
+  
+env:
+  EKS_DIR: terraform/eks
+  MONITORING_DIR: terraform/monitoring
+  TF_VERSION: 1.7.4
 
 jobs:
   microservice:
@@ -27,8 +32,46 @@ jobs:
       - name: Check Deployment Status
         run: kubectl get all -o wide -A
 
-  terraform:
+  terraform_monitoring:
     needs: microservice
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.1.2
+
+      - name: Configure AWS Cli
+        uses: aws-actions/configure-aws-credentials@v4.0.2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: Install Trivy
+        run: |
+          sudo apt-get install wget apt-transport-https gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update && sudo apt-get install trivy
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2.0.3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+        
+      - name: Terraform Init
+        working-directory: ${{ env.MONITORING_DIR }}
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: ${{ env.MONITORING_DIR }}
+        run: terraform plan
+
+      - name: Terraform Apply
+        working-directory: ${{ env.MONITORING_DIR }}
+        run: terraform destroy -auto-approve
+
+  terraform_eks:
+    needs: terraform_monitoring
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -44,16 +87,16 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2.0.3
         with:
-          terraform_version: 1.7.4
+          terraform_version: ${{ env.TF_VERSION }}
       
       - name: Terraform Init
-        working-directory: terraform
+        working-directory: ${{ env.EKS_DIR }}
         run: terraform init
 
       - name: Terraform Plan
-        working-directory: terraform
+        working-directory: ${{ env.EKS_DIR }}
         run: terraform plan
 
       - name: Terraform Destroy
-        working-directory: terraform
+        working-directory: ${{ env.EKS_DIR }}
         run: terraform destroy -auto-approve
